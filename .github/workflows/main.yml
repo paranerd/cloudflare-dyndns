@@ -25,6 +25,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
+          # Repository to push to
+          images: ${{ secrets.DOCKER_HUB_USERNAME }}/cloudflare-dyndns
+
           # Use GitHub tag as version
           tags: type=semver,pattern={{raw}}
           
