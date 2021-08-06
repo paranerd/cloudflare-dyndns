@@ -1,11 +1,28 @@
 #!/bin/bash
 
-api_url="https://api.cloudflare.com/client/v4"
 zone_id="" # Get the zone ID from the overview page
 record_name="" # Record name to be updated
 auth_method="token" # Use "global" for Global API Key or "token" for API Token (recommended)
 email="" # Only required for Global API Key authentication
 api_key=""
+proxy=true # Set to "true" or "false"
+
+api_url="https://api.cloudflare.com/client/v4"
+config_location="./dyndns.conf"
+
+email_config=$(grep -Pos '(?<=EMAIL=)[^\s]*' ${config_location})
+api_key_config=$(grep -Pos '(?<=API_KEY=)[^\s]*' ${config_location})
+zone_id_config=$(grep -Pos '(?<=ZONE_ID=)[^\s]*' ${config_location})
+record_name_config=$(grep -Pos '(?<=RECORD_NAME=)[^\s]*' ${config_location})
+proxy_config=$(grep -Pos '(?<=PROXY=)[^\s]*' ${config_location})
+auth_method_config=$(grep -Pos '(?<=AUTH_METHOD=)[^\s]*' ${config_location})
+
+email=${email:-$email_config}
+api_key=${api_key:-$api_key_config}
+zone_id=${zone_id:-$zone_id_config}
+record_name=${record_name:-$record_name_config}
+proxy=${proxy:-$proxy_config}
+auth_method=${auth_method:-$auth_method_config}
 
 determine_auth_header() {
   if [ "${auth_method}" == "global" ]; then
@@ -77,7 +94,7 @@ update_dns_record() {
   -H "X-Auth-Email: ${email}" \
   -H "${auth_header}" \
   -H "Content-Type: application/json" \
-  --data '{"type":"A","name":"'${record_name}'","content":"'${2}'"}')
+  --data '{"type":"A","name":"'${record_name}'","proxied":'${proxy}',"content":"'${2}'"}')
 
   # Extract the body
   update_body=$(echo $update_response | sed -e 's/HTTPSTATUS\:.*//g')
