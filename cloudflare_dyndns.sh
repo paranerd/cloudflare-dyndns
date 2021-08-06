@@ -8,6 +8,7 @@ api_key=""
 
 api_url="https://api.cloudflare.com/client/v4"
 config_location="./dyndns.conf"
+logger_prefix="DynDNS Updater:"
 
 email_config=$(grep -Pos '(?<=EMAIL=)[^\s]*' ${config_location})
 api_key_config=$(grep -Pos '(?<=API_KEY=)[^\s]*' ${config_location})
@@ -20,6 +21,14 @@ api_key=${api_key:-$api_key_config}
 zone_id=${zone_id:-$zone_id_config}
 record_name=${record_name:-$record_name_config}
 auth_method=${auth_method:-$auth_method_config}
+
+logger_info() {
+  echo $logger_prefix $1
+}
+
+logger_error() {
+  echo $logger_prefix $1 >&2
+}
 
 determine_auth_header() {
   if [ "${auth_method}" == "global" ]; then
@@ -43,7 +52,7 @@ get_current_ip() {
   ip_status=$(echo $ip_response | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
 
   if [ ! $ip_status -eq 200 ]; then
-    logger -s "Error obtaining public IP [HTTP status: $ip_status]"
+    logger_error "Error obtaining public IP [HTTP status: $ip_status]"
     exit 1
   fi
 
@@ -66,7 +75,7 @@ get_record() {
 
   # Check if there is an A record
   if [[ $record == *"\"count\":0"* ]]; then
-    logger -s "DynDNS Updater: No A record present"
+    logger_error "DynDNS Updater: No A record present"
     exit 1
   fi
 
@@ -101,10 +110,12 @@ update_dns_record() {
 
   # Check if successful
   if [ ! $update_status -eq 200 ]; then
-    logger -s "Error [HTTP status: $update_status]"
+    logger_error "Error updating IP: ${update_status} | ${update_body}"
     exit 1
   fi
 }
+
+logger_info "Starting DynDNS update..."
 
 # Determine authentication header
 auth_header=$(determine_auth_header)
@@ -117,7 +128,7 @@ previous_ip=$(get_previous_ip $record)
 
 # Check if IP changed
 if [[ $current_ip == $previous_ip ]]; then
-  logger "DynDNS Updater: IP ($current_ip) for ${record_name} unchanged."
+  logger_info "IP ($current_ip) for ${record_name} unchanged."
   exit 0
 fi
 
@@ -126,3 +137,5 @@ record_id=$(get_record_id ${record})
 
 # Update IP
 update_dns_record $record_id $current_ip
+
+logger_info "IP successfully updated."
