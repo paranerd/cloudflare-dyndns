@@ -31,7 +31,8 @@ jobs:
 
           # Use GitHub tag as version
           tags: |
-            type=semver,pattern={{raw}}
+            #type=semver,pattern={{raw}}
+            type=ref,event=tag
           
       - name: Set up Docker Buildx
         id: buildx
