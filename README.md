@@ -1,16 +1,21 @@
 # Cloudflare DynDNS Updater
+
 This is a handy tool to update your Cloudflare managed DNS records to your current public IP.
 
-# Prerequisites
-## Environment
+## Prerequisites
+
+### Environment
+
 If you're using this with Docker you obviously need to have Docker installed, otherwise you only need to install `curl`.
 
-## Credentials
-For the script to work you need a **Cloudflare API Token** or a Global API Key ([not recommended](https://developers.cloudflare.com/api/keys)). 
+### Credentials
+
+For the script to work you need a **Cloudflare API Token** or a Global API Key ([not recommended](https://developers.cloudflare.com/api/keys)).
 
 Check [this Cloudflare article](https://developers.cloudflare.com/api/tokens/create) on how to create an API Token.
 
-## Identifiers
+### Identifiers
+
 The script needs a **Record Name** as well as the **Zone ID** that you're trying to update.
 
 The record name is simply the name of your A-Record (e.g. `example.com`, `sub.example.com` or `*.sub.example.com`).
@@ -19,16 +24,26 @@ You can find your Zone ID at the bottom right on the overview page of your domai
 
 The `email` parameter is only required when using a Global API Key (again: not recommended). Otherwise it can be left blank.
 
-# How to use
-## Standalone
-You can use the script as a standalone bash-script. Simply fill in your credentials and identifiers for `zone_id`, `record_name`, `email` and `api_key` at the top of the script.
+## How to use
 
-## Docker
-When using Docker, fill in your credentials and identifiers in the `dyndns.conf`.
+### Update config
+
+Enter your details in the `cloudflare.ini`
+
+Start a new section for each record name (`[example.com]`)
+
+### Standalone
+
+You can use the script as a standalone bash-script.
+
+Simply call `cloudflare_dyndns.sh`.
+
+### Docker
 
 Running the following command should do the rest:
+
 ```bash
-docker run --rm -v "/path/to/dyndns.conf:/dyndns.conf" paranerd/cloudflare-dyndns
+docker run --rm -v "/path/to/cloudflare.ini:/cloudflare.ini" paranerd/cloudflare-dyndns
 ```
 
 I suggest setting up a cron job so you don't have to run it manually all the time.

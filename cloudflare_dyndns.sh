@@ -1,26 +1,10 @@
-#!/bin/bash
-
-zone_id="" # Get the zone ID from the overview page
-record_name="" # Record name to be updated
-auth_method="token" # Use "global" for Global API Key or "token" for API Token (recommended)
-email="" # Only required for Global API Key authentication
-api_key=""
-
+# General variables
 api_url="https://api.cloudflare.com/client/v4"
-config_location="./dyndns.conf"
+config_location="./cloudflare.ini"
 logger_prefix="DynDNS Updater:"
 
-email_config=$(grep -Pos '(?<=EMAIL=)[^\s]*' ${config_location})
-api_key_config=$(grep -Pos '(?<=API_KEY=)[^\s]*' ${config_location})
-zone_id_config=$(grep -Pos '(?<=ZONE_ID=)[^\s]*' ${config_location})
-record_name_config=$(grep -Pos '(?<=RECORD_NAME=)[^\s]*' ${config_location})
-auth_method_config=$(grep -Pos '(?<=AUTH_METHOD=)[^\s]*' ${config_location})
-
-email=${email:-$email_config}
-api_key=${api_key:-$api_key_config}
-zone_id=${zone_id:-$zone_id_config}
-record_name=${record_name:-$record_name_config}
-auth_method=${auth_method:-$auth_method_config}
+# Extract sections from config
+sections=$(sed -n -e 's/^\[\(.*\)\]/\1/p' $config_location)
 
 logger_info() {
   echo $logger_prefix $1
@@ -31,10 +15,10 @@ logger_error() {
 }
 
 determine_auth_header() {
-  if [ "${auth_method}" == "global" ]; then
-    echo "X-Auth-Key: ${api_key}"
+  if [ "$1" == "global" ]; then
+    echo "X-Auth-Key: $2"
   else
-    echo "Authorization: Bearer ${api_key}"
+    echo "Authorization: Bearer $2"
   fi
 }
 
@@ -68,8 +52,9 @@ get_current_ip() {
 }
 
 get_record() {
-  record=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?name=$record_name&type=A" \
-  -H "X-Auth-Email: $email" \
+  echo EMAIL: $3
+  record=$(curl -s -X GET "$api_url/zones/$1/dns_records?name=$2&type=A" \
+  -H "X-Auth-Email: $3" \
   -H "${auth_header}" \
   -H "Content-Type: application/json")
 
@@ -115,27 +100,57 @@ update_dns_record() {
   fi
 }
 
+parseini() {
+  local section=$1
+  local key=$2
+
+  # https://stackoverflow.com/questions/49399984/parsing-ini-file-in-bash
+  # This awk line turns ini sections => [section-name]key=value
+  local lines=$(awk '/\[/{prefix=$0; next} $1{print prefix $0}' $config_location)
+
+  # Search for key in section
+  for line in $lines; do
+    if [[ "$line" = \[$section\]* ]]; then
+      local keyval=$(echo $line | sed -e "s/^\[$section\]//")
+      if [[ -z "$key" ]]; then
+        echo $keyval
+      elif [[ "$keyval" = $key=* ]]; then
+        echo $(echo $keyval | sed -e "s/^$key=//")
+      fi
+    fi
+  done
+}
+
 logger_info "Starting DynDNS update..."
 
-# Determine authentication header
-auth_header=$(determine_auth_header)
+# Loop through every section
+for section in $sections
+do
+  # Read config
+  auth_method=$(parseini $section AUTH_METHOD)
+  api_key=$(parseini $section API_KEY)
+  zone_id=$(parseini $section ZONE_ID)
+  record_name=$(parseini $section RECORD_NAME)
+  email=$(parseini $section EMAIL)
 
-# Get A record
-record=$(get_record)
+  # Determine authentication header
+  auth_header=$(determine_auth_header $auth_method $api_key)
 
-current_ip=$(get_current_ip)
-previous_ip=$(get_previous_ip $record)
+  # Get A record
+  record=$(get_record $zone_id $record_name $email)
 
-# Check if IP changed
-if [[ $current_ip == $previous_ip ]]; then
-  logger_info "IP ($current_ip) for ${record_name} unchanged."
-  exit 0
-fi
+  current_ip=$(get_current_ip)
+  previous_ip=$(get_previous_ip $record)
 
-# Extract record ID
-record_id=$(get_record_id ${record})
+  # Check if IP changed
+  if [[ $current_ip == $previous_ip ]]; then
+    logger_info "IP ($current_ip) for ${record_name} unchanged."
+    continue
+  fi
 
-# Update IP
-update_dns_record $record_id $current_ip
+  # Extract record ID
+  record_id=$(get_record_id ${record})
 
-logger_info "IP successfully updated."
+  # Update IP
+  update_dns_record $record_id $current_ip
+done
