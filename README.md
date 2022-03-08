@@ -30,7 +30,16 @@ The `email` parameter is only required when using a Global API Key (again: not r
 
 Enter your details in the `cloudflare.ini`
 
-Start a new section for each record name (`[example.com]`)
+Start a new section for each record name:
+
+```
+[example.com]
+ZONE_ID=0987654321gfedcba
+RECORD_NAME=example.com
+AUTH_METHOD=token
+API_KEY=1234567890abcdefg
+EMAIL=yourmail@example.com
+```
 
 ### Standalone
 
